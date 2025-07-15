@@ -1,0 +1,58 @@
+{
+    "units": {
+        "active": 1,
+        "pending": 0,
+        "closed": 0
+    },
+    "gci": {
+        "active": 900,
+        "pending": 0,
+        "closed": 0
+    },
+    "volume": {
+        "active": 600000,
+        "pending": 0,
+        "closed": 0
+    },
+    "profits": {
+        "current_month": 0,
+        "next_month": 0,
+        "total": 0
+    },
+    "monthly_profits": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "profit_goals": [
+        18800,
+        18800,
+        18800,
+        28200,
+        28200,
+        28200,
+        28200,
+        28200,
+        28200,
+        18800,
+        18800,
+        18800
+    ],
+    "ratings": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+    ]
+}
