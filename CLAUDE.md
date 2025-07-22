@@ -50,6 +50,7 @@ ClarityNOW is a comprehensive full-stack real estate management portal designed 
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
+- OpenAI API key (for chatbot functionality)
 
 ### Installation & Setup
 
@@ -71,8 +72,13 @@ ClarityNOW is a comprehensive full-stack real estate management portal designed 
 
 3. **Environment Variables**:
    ```bash
+   # Server (required for chatbot)
+   cd server
+   cp .env.example .env
+   # Add your OpenAI API key: OPENAI_API_KEY=your_key_here
+   
    # Client (optional - defaults work)
-   cd client
+   cd ../client
    cp .env.example .env
    # Edit VITE_API_URL if needed (defaults to http://localhost:3001/api)
    ```
@@ -122,12 +128,24 @@ ClarityNOW is a comprehensive full-stack real estate management portal designed 
 - **Data Export**: Prepared for export functionality
 - **Pagination**: Built-in pagination for large datasets
 
+### 🤖 AI Chatbot Features ✨ NEW
+- **Natural Language Queries**: Ask questions about your real estate data in plain English
+- **Agent Performance Analysis**: "Which agent has the most active listings?"
+- **Property Analytics**: "Show me all properties over $800k"
+- **Market Insights**: "What's our total transaction volume?"
+- **Real-time Database Integration**: Live data from your ClarityNOW database
+- **Conversation History**: Maintains context for follow-up questions
+- **Floating Chat Widget**: Easily accessible from any page
+- **Responsive Design**: Works on mobile and desktop
+
 ### Technical Features
 - **Responsive Design**: Mobile-first approach with desktop optimization  
 - **Type Safety**: Full TypeScript implementation
 - **Performance**: Optimized database queries with prepared statements
 - **Security**: Input validation and parameterized queries
 - **Error Handling**: Graceful error handling with user feedback
+- **AI Integration**: OpenAI GPT-4 powered natural language processing
+- **Safe Database Access**: Read-only queries with SQL injection protection
 
 ## 🗄️ Database Schema
 
@@ -175,16 +193,91 @@ curl http://localhost:3001/health
 curl http://localhost:3001/api/portal  
 curl http://localhost:3001/api/listings
 curl http://localhost:3001/api/listings/stats/summary
+
+# Test chatbot endpoints
+curl http://localhost:3001/api/chatbot/health
+curl http://localhost:3001/api/chatbot/schema
+curl -X POST http://localhost:3001/api/chatbot/message \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Which agent has the most active listings?"}'
 ```
+
+## 🤖 Chatbot Usage Guide
+
+### Setup Requirements
+1. **OpenAI API Key**: Required for natural language processing
+   ```bash
+   cd server
+   cp .env.example .env
+   echo "OPENAI_API_KEY=your_openai_api_key_here" >> .env
+   ```
+
+2. **Verify Setup**: Check if chatbot is properly configured
+   ```bash
+   curl http://localhost:3001/api/chatbot/health
+   ```
+
+### Example Queries
+The AI chatbot can answer various types of questions about your real estate data:
+
+**Agent Performance:**
+- "Which agent has the most active listings?"
+- "Who is the top performing agent by gross commission?"
+- "How many listings does Sarah Johnson have?"
+- "Show me all agents working on new construction"
+
+**Property Analytics:**
+- "What's the average listing price in our database?"
+- "Show me all properties over $800,000"
+- "How many pending sales are there?"
+- "What percentage of listings are contingent sales?"
+
+**Market Insights:**
+- "What's our total transaction volume?"
+- "Which team has the highest gross profit?"
+- "How many properties are expiring this month?"
+- "What's the distribution of property types?"
+
+**Temporal Queries:**
+- "What listings were added this week?"
+- "Show me sales from last quarter"
+- "Which properties have been on market longest?"
+
+### API Endpoints
+
+**POST /api/chatbot/message**
+```json
+{
+  "message": "Which agent has the most active listings?",
+  "conversationHistory": [
+    {
+      "role": "user",
+      "content": "Previous user message"
+    },
+    {
+      "role": "assistant", 
+      "content": "Previous assistant response"
+    }
+  ]
+}
+```
+
+**GET /api/chatbot/health**
+Returns chatbot service status and OpenAI configuration check.
+
+**GET /api/chatbot/schema**
+Returns database schema information for debugging purposes.
 
 ## 🚀 Deployment
 
 ### Production Considerations
-- **Environment Variables**: Set production API URLs
+- **Environment Variables**: Set production API URLs and OpenAI API key
 - **Database**: Consider PostgreSQL for production scale
 - **Security**: Add authentication/authorization
 - **Monitoring**: Implement logging and monitoring
 - **Performance**: Add caching layer for frequently accessed data
+- **AI Costs**: Monitor OpenAI API usage and implement rate limiting
+- **Chatbot Safety**: Ensure proper input validation and response filtering
 
 ### Docker Support (Future Enhancement)
 ```dockerfile
@@ -248,9 +341,19 @@ curl http://localhost:3001/api/listings/stats/summary
 6. **Audit Logging**: Track all data changes with timestamps
 7. **Testing**: Add comprehensive unit and integration tests
 8. **Deployment**: Docker containerization and CI/CD pipeline
+9. **Enhanced AI Features**: 
+   - Predictive analytics and market trend predictions
+   - Document analysis for property reports
+   - Voice interface for hands-free queries
+   - Advanced data visualization generation
+
+## 📝 Memories & Context
+
+- Use Context7 mcp server for framework and package documentation
+- Run lint with the following command after major edits: npm run lint
 
 ---
 
-**Project Status**: ✅ COMPLETE - Ready for Production Use
+**Project Status**: ✅ COMPLETE with AI CHATBOT - Ready for Production Use
 
-The ClarityNOW Real Estate Portal has been successfully implemented according to all specifications, with a modern full-stack architecture that exactly matches the provided UI mockups and includes all requested functionality.
+The ClarityNOW Real Estate Portal has been successfully implemented according to all specifications, with a modern full-stack architecture that exactly matches the provided UI mockups and includes all requested functionality. The AI-powered chatbot provides natural language querying capabilities for comprehensive real estate data analysis.

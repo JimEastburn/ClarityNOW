@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import { setupDatabase } from './database/setup'
 import portalRoutes from './routes/portal'
 import listingsRoutes from './routes/listings'
+import chatbotRoutes from './routes/chatbot'
 
 // Load environment variables
 dotenv.config()
@@ -22,6 +23,7 @@ app.use(express.urlencoded({ extended: true }))
 // Routes
 app.use('/api/portal', portalRoutes)
 app.use('/api/listings', listingsRoutes)
+app.use('/api/chatbot', chatbotRoutes)
 
 // Health check endpoint
 app.get('/health', (req, res) => {

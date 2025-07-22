@@ -1,4 +1,6 @@
 import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
+import Chat from './Chat'
 import './Layout.css'
 
 interface LayoutProps {
@@ -6,6 +8,12 @@ interface LayoutProps {
 }
 
 const Layout = ({ children }: LayoutProps) => {
+  const [isChatOpen, setIsChatOpen] = useState(false)
+
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen)
+  }
+
   return (
     <div className="app-layout">
       {/* Left Sidebar */}
@@ -149,6 +157,9 @@ const Layout = ({ children }: LayoutProps) => {
           {children}
         </main>
       </div>
+
+      {/* Chat Component */}
+      <Chat isOpen={isChatOpen} onToggle={toggleChat} />
     </div>
   )
 }

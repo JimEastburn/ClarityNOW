@@ -2,6 +2,25 @@ import type { PortalData } from '../../../types/shared/portal'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
+interface Listing {
+  id: number
+  status: 'Active' | 'Pending' | 'Sold'
+  transactionType: string
+  primaryAgent: string
+  address: string
+  unitGoal: string
+  contingentSale: string
+  signedListingDate: string
+  activeListingDate: string
+  targetMlsDate: string
+  dateOnMarket: string
+  expirationDate: string
+  listingPrice: number
+  grossCommission: number
+  team: string
+  grossProfit: number
+}
+
 interface ListingsResponse {
   listings: Array<{
     id: number
@@ -99,14 +118,14 @@ class ApiService {
     return this.request(`/listings/${id}`)
   }
 
-  async createListing(listing: any) {
+  async createListing(listing: Partial<Listing>) {
     return this.request('/listings', {
       method: 'POST',
       body: JSON.stringify(listing),
     })
   }
 
-  async updateListing(id: number, listing: any) {
+  async updateListing(id: number, listing: Partial<Listing>) {
     return this.request(`/listings/${id}`, {
       method: 'PUT',
       body: JSON.stringify(listing),
