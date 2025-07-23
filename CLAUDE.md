@@ -50,7 +50,7 @@ ClarityNOW is a comprehensive full-stack real estate management portal designed 
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
-- OpenAI API key (for chatbot functionality)
+- Anthropic API key (for chatbot functionality)
 
 ### Installation & Setup
 
@@ -75,7 +75,7 @@ ClarityNOW is a comprehensive full-stack real estate management portal designed 
    # Server (required for chatbot)
    cd server
    cp .env.example .env
-   # Add your OpenAI API key: OPENAI_API_KEY=your_key_here
+   # Add your Anthropic API key: ANTHROPIC_API_KEY=your_anthropic_api_key_here
    
    # Client (optional - defaults work)
    cd ../client
@@ -144,7 +144,7 @@ ClarityNOW is a comprehensive full-stack real estate management portal designed 
 - **Performance**: Optimized database queries with prepared statements
 - **Security**: Input validation and parameterized queries
 - **Error Handling**: Graceful error handling with user feedback
-- **AI Integration**: OpenAI GPT-4 powered natural language processing
+- **AI Integration**: Anthropic Claude powered natural language processing
 - **Safe Database Access**: Read-only queries with SQL injection protection
 
 ## 🗄️ Database Schema
@@ -205,11 +205,11 @@ curl -X POST http://localhost:3001/api/chatbot/message \
 ## 🤖 Chatbot Usage Guide
 
 ### Setup Requirements
-1. **OpenAI API Key**: Required for natural language processing
+1. **Anthropic API Key**: Required for natural language processing
    ```bash
    cd server
    cp .env.example .env
-   echo "OPENAI_API_KEY=your_openai_api_key_here" >> .env
+   echo "ANTHROPIC_API_KEY=your_anthropic_api_key_here" >> .env
    ```
 
 2. **Verify Setup**: Check if chatbot is properly configured
@@ -263,7 +263,7 @@ The AI chatbot can answer various types of questions about your real estate data
 ```
 
 **GET /api/chatbot/health**
-Returns chatbot service status and OpenAI configuration check.
+Returns chatbot service status and Anthropic API configuration check.
 
 **GET /api/chatbot/schema**
 Returns database schema information for debugging purposes.
@@ -271,12 +271,12 @@ Returns database schema information for debugging purposes.
 ## 🚀 Deployment
 
 ### Production Considerations
-- **Environment Variables**: Set production API URLs and OpenAI API key
+- **Environment Variables**: Set production API URLs and Anthropic API key
 - **Database**: Consider PostgreSQL for production scale
 - **Security**: Add authentication/authorization
 - **Monitoring**: Implement logging and monitoring
 - **Performance**: Add caching layer for frequently accessed data
-- **AI Costs**: Monitor OpenAI API usage and implement rate limiting
+- **AI Costs**: Monitor Anthropic API usage and implement rate limiting
 - **Chatbot Safety**: Ensure proper input validation and response filtering
 
 ### Docker Support (Future Enhancement)

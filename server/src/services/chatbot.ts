@@ -1,4 +1,4 @@
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import Database from 'better-sqlite3'
 import path from 'path'
 
@@ -15,103 +15,78 @@ interface QueryResult {
 }
 
 class ChatbotService {
-  private openai: OpenAI
+  private anthropic: Anthropic | null = null
   private db: Database.Database
 
   constructor() {
-    // Initialize OpenAI client
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    })
-
     // Initialize database connection
     const dbPath = path.join(__dirname, '../../data/claritynow.db')
     this.db = new Database(dbPath)
     this.db.pragma('journal_mode = WAL')
   }
 
-  private getSystemPrompt(): string {
-    return `You are ClarityNOW AI Assistant, a helpful AI that can answer questions about real estate data from the ClarityNOW portal database.
-
-IMPORTANT: You can only execute READ-ONLY queries. Never attempt to modify, insert, update, or delete data.
-
-DATABASE SCHEMA:
-1. portal_data table:
-   - id: INTEGER PRIMARY KEY
-   - units_active, units_pending, units_closed: INTEGER (transaction counts)
-   - gci_active, gci_pending, gci_closed: REAL (gross commission income)
-   - volume_active, volume_pending, volume_closed: REAL (transaction volumes)
-   - profits_current_month, profits_next_month, profits_total: REAL
-   - monthly_profits: TEXT (JSON array of monthly profit data)
-   - profit_goals: TEXT (JSON array of profit goals)
-   - ratings: TEXT (JSON array of ratings data)
-   - created_at, updated_at: TEXT (timestamps)
-
-2. listings table:
-   - id: INTEGER PRIMARY KEY
-   - status: TEXT (Active, Pending, Sold, Expired, etc.)
-   - transaction_type: TEXT (New Construction, Resale, etc.)
-   - primary_agent: TEXT (agent name)
-   - address: TEXT (property address)
-   - unit_goal: TEXT
-   - contingent_sale: TEXT (Yes/No)
-   - signed_listing_date, active_listing_date, target_mls_date, date_on_market, expiration_date: TEXT (dates)
-   - listing_price: REAL (property price)
-   - gross_commission: REAL (commission amount)
-   - team: TEXT (team name)
-   - gross_profit: REAL (profit amount)
-   - created_at, updated_at: TEXT (timestamps)
-
-RESPONSE FORMAT:
-When asked a question:
-1. If it requires data from the database, generate a safe READ-ONLY SQL query
-2. Execute the query and format the results in a natural, conversational way
-3. If asked for agent performance, property analytics, market insights, or temporal queries, provide specific data
-4. Always be helpful, accurate, and professional
-5. If you can't answer something with the available data, explain what information is missing
-
-QUERY SAFETY:
-- Only use SELECT statements
-- Use parameterized queries when needed
-- Never use DROP, INSERT, UPDATE, DELETE, ALTER, or other modification commands
-- Validate that all queries are read-only before execution
-
-Examples of good responses:
-- "Based on your listings data, Sarah Johnson has 12 active listings with a total value of $2.4M"
-- "Your top performing agent by gross commission is John Smith with $145,000 in commissions"
-- "You currently have 23 pending sales worth $4.2M in total transaction volume"
-
-Be conversational, helpful, and always provide specific numbers and insights when available.`
+  private getAnthropicClient(): Anthropic {
+    if (!this.anthropic) {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error('Anthropic API key is not configured. Please set ANTHROPIC_API_KEY environment variable.')
+      }
+      this.anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY
+      })
+    }
+    return this.anthropic
   }
 
-  private async generateSQL(userQuery: string, conversationHistory: ChatMessage[]): Promise<string> {
-    const messages: ChatMessage[] = [
-      { role: 'system', content: this.getSystemPrompt() },
-      ...conversationHistory.slice(-5), // Keep last 5 messages for context
-      { 
-        role: 'user', 
-        content: `Generate a READ-ONLY SQL query to answer this question: "${userQuery}". Return ONLY the SQL query, no explanation.` 
-      }
-    ]
+  private getSystemPrompt(): string {
+    return `You are a SQL query generator for a real estate database. Generate ONLY SELECT queries.
 
+DATABASE TABLES:
+- listings: id, status, primary_agent, address, listing_price, gross_commission, team, gross_profit, transaction_type, contingent_sale, created_at
+- portal_data: id, units_active, units_pending, units_closed, gci_active, gci_pending, gci_closed, volume_active, volume_pending, volume_closed
+
+RULES:
+- Only generate SELECT statements
+- Use proper SQL syntax
+- Return ONLY the SQL query, no explanations
+- Use COUNT, GROUP BY, ORDER BY as needed
+- For "most active listings" queries, use: SELECT primary_agent, COUNT(*) as listing_count FROM listings WHERE status = 'Active' GROUP BY primary_agent ORDER BY listing_count DESC LIMIT 1`
+  }
+
+  private async generateSQL(userQuery: string): Promise<string> {
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: messages,
+      const anthropic = this.getAnthropicClient()
+      
+      const response = await anthropic.messages.create({
+        model: 'claude-3-haiku-20240307',
         max_tokens: 200,
-        temperature: 0.1
+        system: this.getSystemPrompt(),
+        messages: [
+          {
+            role: 'user',
+            content: `Question: "${userQuery}"\nSQL:`
+          }
+        ]
       })
 
-      const sql = response.choices[0]?.message?.content?.trim() || ''
-      
-      // Validate that the query is read-only
-      if (!this.isReadOnlyQuery(sql)) {
-        throw new Error('Generated query is not read-only')
-      }
+      const content = response.content[0]
+      if (content.type === 'text') {
+        const sql = content.text.trim()
+        
+        // Validate that the query is read-only
+        if (!this.isReadOnlyQuery(sql)) {
+          throw new Error('Generated query is not read-only')
+        }
 
-      return sql
+        return sql
+      }
+      
+      throw new Error('No text content in response')
     } catch (error) {
       console.error('Error generating SQL:', error)
+      if (error instanceof Error) {
+        console.error('SQL generation error details:', error.message)
+        throw new Error(`Failed to generate database query: ${error.message}`)
+      }
       throw new Error('Failed to generate database query')
     }
   }
@@ -156,7 +131,7 @@ Be conversational, helpful, and always provide specific numbers and insights whe
     }
   }
 
-  private async generateResponse(userQuery: string, queryResult: QueryResult, conversationHistory: ChatMessage[]): Promise<string> {
+  private async generateResponse(userQuery: string, queryResult: QueryResult): Promise<string> {
     let dataContext = ''
     
     if (queryResult.success && queryResult.data) {
@@ -169,24 +144,27 @@ Be conversational, helpful, and always provide specific numbers and insights whe
       dataContext = `Database error: ${queryResult.error}`
     }
 
-    const messages: ChatMessage[] = [
-      { role: 'system', content: this.getSystemPrompt() },
-      ...conversationHistory.slice(-4), // Keep last 4 messages for context
-      { 
-        role: 'user', 
-        content: `User question: "${userQuery}"\n\nDatabase query results:\n${dataContext}\n\nPlease provide a helpful, conversational response based on this data. Format numbers nicely and provide insights when possible.` 
-      }
-    ]
-
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: messages,
+      const anthropic = this.getAnthropicClient()
+      
+      const response = await anthropic.messages.create({
+        model: 'claude-3-haiku-20240307',
         max_tokens: 500,
-        temperature: 0.7
+        system: `You are ClarityNOW AI Assistant. Provide conversational responses about real estate data questions. Format numbers nicely and do not provide insights, only report the data. Do not begin the response with statements like ' Based on the data provided' or 'Based on the information provided' or 'According to the data'`,
+        messages: [
+          {
+            role: 'user',
+            content: `User question: "${userQuery}"\n\nDatabase query results:\n${dataContext}\n\nPlease provide a helpful, conversational response based on this data.`
+          }
+        ]
       })
 
-      return response.choices[0]?.message?.content || 'I apologize, but I was unable to generate a response.'
+      const content = response.content[0]
+      if (content.type === 'text') {
+        return content.text
+      }
+      
+      return 'I apologize, but I was unable to generate a response.'
     } catch (error) {
       console.error('Error generating response:', error)
       return 'I encountered an error while processing your request. Please try again.'
@@ -195,26 +173,40 @@ Be conversational, helpful, and always provide specific numbers and insights whe
 
   async processMessage(userMessage: string, conversationHistory: ChatMessage[] = []): Promise<string> {
     try {
+      console.log('Processing message:', userMessage)
+      
       // Check if this requires database access
       const needsData = this.requiresData(userMessage)
+      console.log('Needs data:', needsData)
       
       if (!needsData) {
         // Handle general questions without database access
-        return this.handleGeneralQuestion(userMessage, conversationHistory)
+        return this.handleGeneralQuestion(userMessage)
       }
 
+      console.log('Generating SQL query...')
       // Generate SQL query
-      const sql = await this.generateSQL(userMessage, conversationHistory)
+      const sql = await this.generateSQL(userMessage)
+      console.log('Generated SQL:', sql)
       
+      console.log('Executing query...')
       // Execute query
       const queryResult = this.executeQuery(sql)
+      console.log('Query result:', queryResult.success ? 'Success' : `Error: ${queryResult.error}`)
       
+      console.log('Generating response...')
       // Generate response based on results
-      const response = await this.generateResponse(userMessage, queryResult, conversationHistory)
+      const response = await this.generateResponse(userMessage, queryResult)
+      console.log('Response generated successfully')
       
       return response
     } catch (error) {
       console.error('Error processing message:', error)
+      if (error instanceof Error) {
+        console.error('Error details:', error.message)
+        console.error('Stack trace:', error.stack)
+        return `I encountered an error: ${error.message}. Please try again or rephrase your question.`
+      }
       return 'I apologize, but I encountered an error while processing your request. Please try again or rephrase your question.'
     }
   }
@@ -231,27 +223,28 @@ Be conversational, helpful, and always provide specific numbers and insights whe
     return dataKeywords.some(keyword => lowerMessage.includes(keyword))
   }
 
-  private async handleGeneralQuestion(userMessage: string, conversationHistory: ChatMessage[]): Promise<string> {
-    const messages: ChatMessage[] = [
-      { 
-        role: 'system', 
-        content: `You are ClarityNOW AI Assistant. You help with questions about the ClarityNOW real estate portal. 
-                 If users ask general questions about the system or need help, provide helpful guidance.
-                 Keep responses conversational and professional.` 
-      },
-      ...conversationHistory.slice(-3),
-      { role: 'user', content: userMessage }
-    ]
-
+  private async handleGeneralQuestion(userMessage: string): Promise<string> {
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: messages,
+      const anthropic = this.getAnthropicClient()
+      
+      const response = await anthropic.messages.create({
+        model: 'claude-3-haiku-20240307',
         max_tokens: 300,
-        temperature: 0.7
+        system: `You are ClarityNOW AI Assistant. You help with questions about the ClarityNOW real estate portal. If users ask general questions about the system or need help, provide helpful guidance. Keep responses conversational and professional.`,
+        messages: [
+          {
+            role: 'user',
+            content: userMessage
+          }
+        ]
       })
 
-      return response.choices[0]?.message?.content || 'How can I help you with your ClarityNOW data today?'
+      const content = response.content[0]
+      if (content.type === 'text') {
+        return content.text
+      }
+      
+      return 'How can I help you with your ClarityNOW data today?'
     } catch (error) {
       console.error('Error handling general question:', error)
       return 'I\'m here to help you with questions about your real estate data. What would you like to know?'
@@ -272,6 +265,11 @@ Be conversational, helpful, and always provide specific numbers and insights whe
       console.error('Error getting schema info:', error)
       return { error: 'Failed to retrieve schema information' }
     }
+  }
+
+  // Check if Anthropic API is configured
+  isConfigured(): boolean {
+    return !!process.env.ANTHROPIC_API_KEY
   }
 }
 

@@ -79,13 +79,13 @@ router.get('/schema', async (req, res) => {
 // GET /api/chatbot/health - Health check for chatbot service
 router.get('/health', async (req, res) => {
   try {
-    // Test if OpenAI API key is configured
-    const hasApiKey = !!process.env.OPENAI_API_KEY
+    // Test if Anthropic API key is configured
+    const isConfigured = chatbotService.isConfigured()
     
     res.json({
       success: true,
       status: 'Chatbot service is running',
-      openai_configured: hasApiKey,
+      anthropic_configured: isConfigured,
       timestamp: new Date().toISOString()
     })
   } catch (error) {
